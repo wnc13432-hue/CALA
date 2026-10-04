@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calendrier des jours de travail</title>
+<style>
+:root{--bg:#eef2f1;--card:#fff;--ink:#14302e;--mute:#7b8f8d;--work:#2e9e5b;--workink:#fff;--off:#fff;--hol:#f2b134;--line:#d5dedc;--today:#d9482b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1b1a;--card:#162826;--ink:#e6f0ee;--mute:#8aa3a0;--work:#3fb36f;--workink:#06200f;--off:#1f3431;--hol:#e0a22c;--line:#2a4440;--today:#ff7a5c}}
+:root[data-theme="dark"]{--bg:#0e1b1a;--card:#162826;--ink:#e6f0ee;--mute:#8aa3a0;--work:#3fb36f;--workink:#06200f;--off:#1f3431;--hol:#e0a22c;--line:#2a4440;--today:#ff7a5c}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6}
+main{max-width:520px;margin:0 auto;padding:16px}
+h1{font-size:1.25rem;margin:4px 0 14px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nav b{font-size:1.15rem;font-weight:600}
+button{font:inherit;color:inherit;background:none;border:1px solid var(--line);border-radius:10px;padding:6px 12px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--work);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.dn{text-align:center;font-size:.75rem;color:var(--mute);padding:2px 0}
+.d{aspect-ratio:1;border-radius:10px;border:1px solid var(--line);padding:0;font-size:.95rem;background:var(--off);color:var(--ink)}
+.d.on{background:var(--work);color:var(--workink);border-color:var(--work)}
+.d.today{outline:2px solid var(--today);outline-offset:1px}
+.e{visibility:hidden}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.stats strong{display:block;font-size:1.6rem;line-height:1.2}
+.stats span{font-size:.8rem;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border-radius:20px;padding:4px 12px;font-size:.85rem}
+.chip[aria-pressed="true"]{background:var(--work);color:var(--workink);border-color:var(--work)}
+.hint{font-size:.8rem;color:var(--mute);margin:8px 0 0}
+.key{display:flex;gap:12px;font-size:.8rem;color:var(--mute);margin-top:10px;flex-wrap:wrap}
+.key i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-inline-end:5px;vertical-align:-1px}
+textarea,input{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;color-scheme:light dark}
+textarea{resize:vertical;margin:8px 0}
+.row{display:grid;gap:8px}
+#alist{list-style:none;margin:10px 0 0;padding:0}
+#alist li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
+#alist li.done{color:var(--mute);text-decoration:line-through}
+#ring{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--hol);color:#2b1d00;border-radius:10px;padding:10px 12px;margin-top:10px;font-weight:600}
+#ring[hidden]{display:none}
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2e9e5b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Jours de travail">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+<main>
+<h1>Calendrier des jours de travail</h1>
+<section class="card">
+  <div class="nav">
+    <button id="prev" aria-label="Mois précédent">‹</button>
+    <b id="title"></b>
+    <button id="next" aria-label="Mois suivant">›</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="key"><span><i style="background:var(--work)"></i>Jour travaillé</span><span><i style="background:var(--off);border:1px solid var(--line)"></i>Jour normal</span></div>
+  <p class="hint">Touchez un jour travaillé pour le colorer en vert. Touchez-le à nouveau pour l’annuler.</p>
+</section>
+<section class="card">
+  <b>Notes et alarme</b>
+  <textarea id="notes" rows="4" placeholder="Écrivez vos notes ici…" aria-label="Notes"></textarea>
+  <div class="row">
+    <input type="datetime-local" id="alt" aria-label="Date et heure de l’alarme">
+    <input type="text" id="alm" placeholder="Libellé de l’alarme (facultatif)">
+    <button id="addAlarm">Ajouter l’alarme</button>
+  </div>
+  <ul id="alist"></ul>
+  <div id="ring" hidden><span id="rtext"></span><button id="stop">Arrêter</button></div>
+  <p class="hint">L’alarme sonne seulement si cette page reste ouverte.</p>
+</section>
+<section class="card">
+  <div class="stats">
+    <div><strong id="s1">0</strong><span>Jours travaillés ce mois</span></div>
+    <div><strong id="s2">0</strong><span>Jours sans travail</span></div>
+    <div><strong id="s3">0</strong><span>Jours travaillés cette année</span></div>
+  </div>
+</section>
+<section class="card"><button id="today">Revenir à aujourd’hui</button></section>
+<section class="card">
+  <b>Sauvegarde</b>
+  <p class="hint">Gardez une copie de vos jours travaillés, notes et alarmes. Collez-la plus tard pour tout restaurer.</p>
+  <textarea id="bk" rows="4" placeholder="Votre sauvegarde apparaît ici. Pour restaurer, collez-la ici." aria-label="Données de sauvegarde"></textarea>
+  <div class="row">
+    <button id="bkMake">Créer et copier la sauvegarde</button>
+    <button id="bkLoad">Restaurer depuis le texte</button>
+  </div>
+  <p class="hint" id="bkMsg" role="status"></p>
+</section>
+</main>
+<script>
+var MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+var DAYS=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+var on={};
+try{on=JSON.parse(localStorage.getItem("wc3")||"{}")||{}}catch(e){}
+function save(){try{localStorage.setItem("wc3",JSON.stringify(on))}catch(e){}}
+var now=new Date(), y=now.getFullYear(), m=now.getMonth();
+function key(d){return y+"-"+(m+1)+"-"+d}
+function render(){
+  document.getElementById("title").textContent=MONTHS[m]+" "+y;
+  var first=(new Date(y,m,1).getDay()+6)%7, n=new Date(y,m+1,0).getDate(), h="";
+  DAYS.forEach(function(d){h+='<div class="dn">'+d+'</div>'});
+  for(var i=0;i<first;i++)h+='<div class="e"></div>';
+  var w=0;
+  for(var d=1;d<=n;d++){
+    var c="d";
+    if(on[key(d)]){c+=" on";w++}
+    if(y==now.getFullYear()&&m==now.getMonth()&&d==now.getDate())c+=" today";
+    h+='<button class="'+c+'" data-d="'+d+'" aria-pressed="'+(on[key(d)]?"true":"false")+'" aria-label="'+d+' '+MONTHS[m]+'">'+d+'</button>';
+  }
+  var yr=0;Object.keys(on).forEach(function(k){if(k.split("-")[0]==y)yr++});
+  document.getElementById("grid").innerHTML=h;
+  document.getElementById("s1").textContent=w;
+  document.getElementById("s2").textContent=n-w;
+  document.getElementById("s3").textContent=yr;
+}
+document.getElementById("grid").onclick=function(e){
+  var d=e.target.getAttribute("data-d"); if(!d)return;
+  var k=key(d); if(on[k])delete on[k]; else on[k]=1;
+  save(); render();
+};
+document.getElementById("next").onclick=function(){m++;if(m>11){m=0;y++}render()};
+document.getElementById("prev").onclick=function(){m--;if(m<0){m=11;y--}render()};
+document.getElementById("today").onclick=function(){y=now.getFullYear();m=now.getMonth();render()};
+render();
+
+var notes="",alarms=[],ctx=null,beepT=null;
+try{notes=localStorage.getItem("wc3n")||"";alarms=JSON.parse(localStorage.getItem("wc3a")||"[]")||[]}catch(e){}
+function saveA(){try{localStorage.setItem("wc3a",JSON.stringify(alarms))}catch(e){}}
+var nt=document.getElementById("notes");nt.value=notes;
+nt.oninput=function(){try{localStorage.setItem("wc3n",nt.value)}catch(e){}};
+function esc(t){return t.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function drawAlarms(){
+  alarms.sort(function(a,b){return a.t-b.t});
+  document.getElementById("alist").innerHTML=alarms.map(function(a,i){
+    var d=new Date(a.t).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"});
+    return '<li class="'+(a.done?"done":"")+'"><span>'+d+(a.l?" — "+esc(a.l):"")+'</span><button data-x="'+i+'" aria-label="Supprimer l’alarme">Supprimer</button></li>';
+  }).join("");
+}
+document.getElementById("alist").onclick=function(e){var x=e.target.getAttribute("data-x");if(x===null)return;alarms.splice(+x,1);saveA();drawAlarms()};
+document.getElementById("addAlarm").onclick=function(){
+  var v=document.getElementById("alt").value;if(!v)return;
+  var t=new Date(v).getTime();if(isNaN(t))return;
+  try{ctx=ctx||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
+  try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission()}catch(e){}
+  alarms.push({t:t,l:document.getElementById("alm").value.trim(),done:t<=Date.now()});
+  document.getElementById("alm").value="";saveA();drawAlarms();
+};
+function beep(){
+  try{if(!ctx)return;var o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=880;g.gain.value=.2;o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.3)}catch(e){}
+}
+function ring(label){
+  document.getElementById("rtext").textContent="⏰ "+(label||"Alarme");
+  document.getElementById("ring").hidden=false;
+  try{if(window.Notification&&Notification.permission==="granted")new Notification(label||"Alarme")}catch(e){}
+  if(!beepT){beep();beepT=setInterval(beep,800)}
+}
+document.getElementById("stop").onclick=function(){document.getElementById("ring").hidden=true;clearInterval(beepT);beepT=null};
+setInterval(function(){
+  var now2=Date.now(),hit=null;
+  alarms.forEach(function(a){if(!a.done&&a.t<=now2){a.done=true;hit=a}});
+  if(hit){saveA();drawAlarms();ring(hit.l)}
+},1000);
+drawAlarms();
+
+function bkSay(t){document.getElementById("bkMsg").textContent=t}
+document.getElementById("bkMake").onclick=function(){
+  var box=document.getElementById("bk");
+  box.value=JSON.stringify({v:1,on:on,notes:nt.value,alarms:alarms});
+  box.select();
+  var ok=false;
+  try{ok=document.execCommand("copy")}catch(e){}
+  try{if(navigator.clipboard)navigator.clipboard.writeText(box.value).then(function(){bkSay("Sauvegarde créée et copiée.")},function(){})}catch(e){}
+  bkSay(ok?"Sauvegarde créée et copiée.":"Sauvegarde créée. Copiez le texte ci-dessus et conservez-le.");
+};
+document.getElementById("bkLoad").onclick=function(){
+  try{
+    var d=JSON.parse(document.getElementById("bk").value);
+    if(!d||typeof d.on!=="object"||!Array.isArray(d.alarms))throw 0;
+    on=d.on;alarms=d.alarms;nt.value=d.notes||"";
+    save();saveA();nt.oninput();render();drawAlarms();
+    bkSay("Sauvegarde restaurée.");
+  }catch(e){bkSay("Texte invalide. Collez une sauvegarde créée par cette page.")}
+};
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+</script>
+</body>
+</html>
